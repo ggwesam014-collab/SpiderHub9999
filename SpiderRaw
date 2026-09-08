@@ -1,4 +1,4 @@
--- Target: Spider Hub V4.1 | Blox Fruits (Custom Bypass Tween)
+-- Target: Spider Hub V4.1 | Blox Fruits (Fixed Hitbox, Fast Attack, Follow Camera)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
@@ -18,46 +18,81 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
 -- Variables
 local AutoFarm = false
+local FastAttack = true
 local SelectedWeapon = "Melee"
 local CurrentTarget = nil
 
--- Fixed Camera (منع اهتزاز الكاميرا)
-local function SetCameraFixed(state)
+----------------------------------------------------------------
+-- Fast Attack & Auto Hit System (نظام الضرب السريع والتلقائي)
+----------------------------------------------------------------
+local function FastAttackLoop()
+    task.spawn(function()
+        while AutoFarm do
+            task.wait(0.05) -- سرعة هجوم متوافقة مع الحماية
+            if CurrentTarget and CurrentTarget:FindFirstChild("Humanoid") and CurrentTarget.Humanoid.Health > 0 then
+                pcall(function()
+                    -- محاكاة ضغطة الماوس الهجومية بدون أنميشن
+                    VirtualUser:CaptureController()
+                    VirtualUser:Button1Down(Vector2.new(0,0))
+                    
+                    -- إرسال ريموت الضرب الخاص بالأسلحة في Blox Fruits
+                    local character = LocalPlayer.Character
+                    if character and character:FindFirstChildOfClass("Tool") then
+                        character:FindFirstChildOfClass("Tool"):Activate()
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+----------------------------------------------------------------
+-- Fixed Camera Tracking (كاميرا تتبع اللاعب بسلاسة وبدون اهتزاز)
+----------------------------------------------------------------
+local CameraConnection
+local function EnableSmoothTrackingCamera(state)
     if state then
         Camera.CameraType = Enum.CameraType.Scriptable
+        CameraConnection = RunService.RenderStepped:Connect(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local rootPart = LocalPlayer.Character.HumanoidRootPart
+                -- جعل الكاميرا تتبع موقع اللاعب بمسافة وثبات دون اهتزاز
+                Camera.CFrame = CFrame.new(rootPart.Position + Vector3.new(0, 12, 15), rootPart.Position)
+            end
+        end)
     else
+        if CameraConnection then CameraConnection:Disconnect() end
         Camera.CameraType = Enum.CameraType.Custom
     end
 end
 
 ----------------------------------------------------------------
--- CUSTOM TWEEN SYSTEM (نظام التوين الخاص لمنع الرجوع والارتطام)
+-- CUSTOM BYPASS TWEEN (توين خاص وسلس يمنع الارتطام والرجوع)
 ----------------------------------------------------------------
 local function CustomTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     
-    SetCameraFixed(true)
+    EnableSmoothTrackingCamera(true)
     
-    -- رفع اللاعب في الجو قليلاً لتفادي المباني والعوائق الأرضية
     local startPos = rootPart.Position
     local endPos = targetCFrame.Position
+    local flyHeight = math.max(startPos.Y, endPos.Y) + 50
     
-    -- تجنب الارتطام بالمرور فوق المباني (High Altitude Path)
-    local flyHeight = math.max(startPos.Y, endPos.Y) + 60
     local waypoints = {
         Vector3.new(startPos.X, flyHeight, startPos.Z),
         Vector3.new(endPos.X, flyHeight, endPos.Z),
         endPos
     }
 
-    local speed = 220 -- سرعة آمنة جداً تمنع السيرفر من إرجاعك (Bypass Rubberband)
+    local speed = 220
     
     for _, waypoint in ipairs(waypoints) do
         while AutoFarm and (rootPart.Position - waypoint).Magnitude > 4 do
@@ -66,17 +101,33 @@ local function CustomTween(targetCFrame)
             local direction = (waypoint - currentPos).Unit
             local distance = (waypoint - currentPos).Magnitude
             
-            -- قطع المسافات بجرعات صغيرة جدًا لتخطي Anti-Cheat السيرفر
             local moveStep = math.min(distance, speed * dt)
             local newPos = currentPos + (direction * moveStep)
             
             rootPart.CFrame = CFrame.new(newPos, waypoint)
-            rootPart.Velocity = Vector3.zero -- إلغاء الفيزياء والجاذبية منعاً للاعتراض
+            rootPart.Velocity = Vector3.zero
         end
     end
     
     rootPart.CFrame = targetCFrame
-    SetCameraFixed(false)
+    EnableSmoothTrackingCamera(false)
+end
+
+----------------------------------------------------------------
+-- Fixed Big Hitbox (تعديل وتكبير الهيت بوكس المضبوط)
+----------------------------------------------------------------
+local function ModifyHitboxes(monster)
+    if not monster or not monster:FindFirstChild("HumanoidRootPart") then return end
+    
+    pcall(function()
+        -- تكبير المدى للوحش ليتمكن السلاح من ضربه من مسافة مرتفعة
+        local hrp = monster.HumanoidRootPart
+        hrp.Size = Vector3.new(50, 50, 50)
+        hrp.Transparency = 0.6
+        hrp.Color = Color3.fromRGB(255, 0, 0)
+        hrp.Material = Enum.Material.Neon
+        hrp.CanCollide = false
+    end)
 end
 
 -- Master Database for Quests & Levels (First Sea)
@@ -130,18 +181,6 @@ local function ManageQuest(questData)
     return true
 end
 
-local function ModifyHitboxes(monster)
-    if not monster or not monster:FindFirstChild("HumanoidRootPart") then return end
-    
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.Size = Vector3.new(1, 1, 1)
-    end
-    
-    monster.HumanoidRootPart.Size = Vector3.new(35, 35, 35)
-    monster.HumanoidRootPart.Transparency = 0.7
-    monster.HumanoidRootPart.CanCollide = false
-end
-
 local function EquipWeapon(weaponType)
     local character = LocalPlayer.Character
     if not character then return end
@@ -158,8 +197,9 @@ local function EquipWeapon(weaponType)
     end
 end
 
--- Main Loop
+-- Main Auto Farm Loop
 local function StartAutoFarm()
+    FastAttackLoop()
     task.spawn(function()
         while AutoFarm do
             task.wait()
@@ -176,13 +216,10 @@ local function StartAutoFarm()
                         
                         while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 do
                             task.wait()
-                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
+                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
                             LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
                             
                             EquipWeapon(SelectedWeapon)
-                            
-                            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                            if tool then tool:Activate() end
                         end
                         
                         repeat task.wait() until not CurrentTarget or not CurrentTarget.Parent
@@ -203,7 +240,7 @@ MainTab:CreateToggle({
       if AutoFarm then
           StartAutoFarm()
       else
-          SetCameraFixed(false)
+          EnableSmoothTrackingCamera(false)
       end
    end,
 })
