@@ -1,0 +1,219 @@
+-- Target: Spider Hub V4.1 | Blox Fruits (Custom Bypass Tween)
+-- Created by: SpiDev
+-- UI Library: Rayfield
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Spider Hub V4.1 | Blox Fruits",
+   LoadingTitle = "Spider Hub Loading...",
+   LoadingSubtitle = "by SpiDev",
+   ConfigurationSaving = { Enabled = false }
+})
+
+local MainTab = Window:CreateTab("Main Farm", 4483362458)
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- Variables
+local AutoFarm = false
+local SelectedWeapon = "Melee"
+local CurrentTarget = nil
+
+-- Fixed Camera (منع اهتزاز الكاميرا)
+local function SetCameraFixed(state)
+    if state then
+        Camera.CameraType = Enum.CameraType.Scriptable
+    else
+        Camera.CameraType = Enum.CameraType.Custom
+    end
+end
+
+----------------------------------------------------------------
+-- CUSTOM TWEEN SYSTEM (نظام التوين الخاص لمنع الرجوع والارتطام)
+----------------------------------------------------------------
+local function CustomTween(targetCFrame)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+    
+    SetCameraFixed(true)
+    
+    -- رفع اللاعب في الجو قليلاً لتفادي المباني والعوائق الأرضية
+    local startPos = rootPart.Position
+    local endPos = targetCFrame.Position
+    
+    -- تجنب الارتطام بالمرور فوق المباني (High Altitude Path)
+    local flyHeight = math.max(startPos.Y, endPos.Y) + 60
+    local waypoints = {
+        Vector3.new(startPos.X, flyHeight, startPos.Z),
+        Vector3.new(endPos.X, flyHeight, endPos.Z),
+        endPos
+    }
+
+    local speed = 220 -- سرعة آمنة جداً تمنع السيرفر من إرجاعك (Bypass Rubberband)
+    
+    for _, waypoint in ipairs(waypoints) do
+        while AutoFarm and (rootPart.Position - waypoint).Magnitude > 4 do
+            local dt = RunService.Heartbeat:Wait()
+            local currentPos = rootPart.Position
+            local direction = (waypoint - currentPos).Unit
+            local distance = (waypoint - currentPos).Magnitude
+            
+            -- قطع المسافات بجرعات صغيرة جدًا لتخطي Anti-Cheat السيرفر
+            local moveStep = math.min(distance, speed * dt)
+            local newPos = currentPos + (direction * moveStep)
+            
+            rootPart.CFrame = CFrame.new(newPos, waypoint)
+            rootPart.Velocity = Vector3.zero -- إلغاء الفيزياء والجاذبية منعاً للاعتراض
+        end
+    end
+    
+    rootPart.CFrame = targetCFrame
+    SetCameraFixed(false)
+end
+
+-- Master Database for Quests & Levels (First Sea)
+local QuestDatabase = {
+    {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059, 16, 1549), Area = CFrame.new(1145, 17, 1634)},
+    {MinLvl = 10, MaxLvl = 14, QuestName = "JungleQuest", Monster = "Monkey", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1610, 36, 142)},
+    {MinLvl = 15, MaxLvl = 29, QuestName = "JungleQuest", Monster = "Gorilla", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1240, 6, -490)},
+    {MinLvl = 30, MaxLvl = 39, QuestName = "BuggyQuest1", Monster = "Pirate", NPC = CFrame.new(-1140, 4, 3828), Area = CFrame.new(-1215, 4, 3910)},
+    {MinLvl = 40, MaxLvl = 59, QuestName = "BuggyQuest1", Monster = "Brute", NPC = CFrame.new(-1140, 4, 3828), Area = CFrame.new(-1146, 77, 4171)},
+    {MinLvl = 60, MaxLvl = 74, QuestName = "DesertQuest", Monster = "Desert Bandit", NPC = CFrame.new(894, 6, 4382), Area = CFrame.new(932, 6, 4484)},
+    {MinLvl = 75, MaxLvl = 89, QuestName = "DesertQuest", Monster = "Desert Officer", NPC = CFrame.new(894, 6, 4382), Area = CFrame.new(1572, 10, 4374)},
+    {MinLvl = 90, MaxLvl = 99, QuestName = "SnowQuest", Monster = "Snow Bandit", NPC = CFrame.new(1386, 87, -1298), Area = CFrame.new(1287, 105, -1380)},
+    {MinLvl = 100, MaxLvl = 119, QuestName = "SnowQuest", Monster = "Snowman", NPC = CFrame.new(1386, 87, -1298), Area = CFrame.new(1287, 105, -1380)},
+    {MinLvl = 120, MaxLvl = 149, QuestName = "MarineQuest2", Monster = "Chief Petty Officer", NPC = CFrame.new(-5030, 20, 4320), Area = CFrame.new(-4850, 20, 4300)},
+    {MinLvl = 150, MaxLvl = 174, QuestName = "SkyQuest", Monster = "Sky Bandit", NPC = CFrame.new(-4840, 718, -2620), Area = CFrame.new(-4970, 720, -2890)},
+    {MinLvl = 175, MaxLvl = 189, QuestName = "SkyQuest", Monster = "Dark Master", NPC = CFrame.new(-4840, 718, -2620), Area = CFrame.new(-5220, 390, -2270)},
+    {MinLvl = 190, MaxLvl = 224, QuestName = "PrisonerQuest", Monster = "Prisoner", NPC = CFrame.new(530, 1, 4740), Area = CFrame.new(530, 1, 4740)},
+    {MinLvl = 225, MaxLvl = 299, QuestName = "ColosseumQuest", Monster = "Toga Warrior", NPC = CFrame.new(-1580, 7, -2980), Area = CFrame.new(-1800, 7, -2980)},
+    {MinLvl = 300, MaxLvl = 374, QuestName = "MagmaQuest", Monster = "Military Soldier", NPC = CFrame.new(-5310, 12, 8515), Area = CFrame.new(-5400, 12, 8500)},
+    {MinLvl = 375, MaxLvl = 449, QuestName = "FishmanQuest", Monster = "Fishman Warrior", NPC = CFrame.new(61120, 18, 1560), Area = CFrame.new(61000, 18, 1500)},
+    {MinLvl = 450, MaxLvl = 524, QuestName = "SkyExp1Quest", Monster = "God's Guard", NPC = CFrame.new(-4720, 845, -1950), Area = CFrame.new(-4700, 845, -1900)},
+    {MinLvl = 525, MaxLvl = 624, QuestName = "SkyExp2Quest", Monster = "Shandia", NPC = CFrame.new(-7900, 5600, -1270), Area = CFrame.new(-7700, 5600, -1100)},
+    {MinLvl = 625, MaxLvl = 699, QuestName = "FountainQuest", Monster = "Galley Pirate", NPC = CFrame.new(5250, 38, 4050), Area = CFrame.new(5500, 38, 3900)},
+}
+
+local function GetCurrentQuestData()
+    local level = LocalPlayer.Data.Level.Value
+    for _, q in pairs(QuestDatabase) do
+        if level >= q.MinLvl and level <= q.MaxLvl then
+            return q
+        end
+    end
+    return QuestDatabase[1]
+end
+
+local function ManageQuest(questData)
+    local questUI = LocalPlayer.PlayerGui:FindFirstChild("Main") and LocalPlayer.PlayerGui.Main:FindFirstChild("Quest")
+    
+    if questUI and questUI.Visible then
+        if not string.find(questUI.Container.QuestTitle.Title.Text, questData.Monster) then
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
+            task.wait(0.5)
+        else
+            return true
+        end
+    end
+    
+    CustomTween(questData.NPC)
+    task.wait(0.3)
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
+    return true
+end
+
+local function ModifyHitboxes(monster)
+    if not monster or not monster:FindFirstChild("HumanoidRootPart") then return end
+    
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.Size = Vector3.new(1, 1, 1)
+    end
+    
+    monster.HumanoidRootPart.Size = Vector3.new(35, 35, 35)
+    monster.HumanoidRootPart.Transparency = 0.7
+    monster.HumanoidRootPart.CanCollide = false
+end
+
+local function EquipWeapon(weaponType)
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if item:IsA("Tool") then
+            if (weaponType == "Melee" and item.ToolTip == "Melee") or
+               (weaponType == "Sword" and item.ToolTip == "Sword") or
+               (weaponType == "Blox Fruit" and item.ToolTip == "Blox Fruit") then
+                character.Humanoid:EquipTool(item)
+                break
+            end
+        end
+    end
+end
+
+-- Main Loop
+local function StartAutoFarm()
+    task.spawn(function()
+        while AutoFarm do
+            task.wait()
+            local questData = GetCurrentQuestData()
+            
+            if questData then
+                ManageQuest(questData)
+                CustomTween(questData.Area)
+                
+                for _, monster in pairs(Workspace.Enemies:GetChildren()) do
+                    if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
+                        CurrentTarget = monster
+                        ModifyHitboxes(CurrentTarget)
+                        
+                        while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 do
+                            task.wait()
+                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
+                            
+                            EquipWeapon(SelectedWeapon)
+                            
+                            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                        
+                        repeat task.wait() until not CurrentTarget or not CurrentTarget.Parent
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Controls
+MainTab:CreateToggle({
+   Name = "تفعيل Auto Farm الشامل",
+   CurrentValue = false,
+   Flag = "AutoFarmToggle",
+   Callback = function(Value)
+      AutoFarm = Value
+      if AutoFarm then
+          StartAutoFarm()
+      else
+          SetCameraFixed(false)
+      end
+   end,
+})
+
+MainTab:CreateDropdown({
+   Name = "نوع السلاح",
+   Options = {"Melee", "Sword", "Blox Fruit"},
+   CurrentOption = "Melee",
+   Flag = "WeaponDropdown",
+   Callback = function(Option)
+      SelectedWeapon = Option[1]
+   end,
+})
