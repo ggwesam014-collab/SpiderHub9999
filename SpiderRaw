@@ -1,11 +1,11 @@
--- Target: Spider Hub V4.4 | Blox Fruits (Direct Fast Auto Hit & Straight Tween)
+-- Target: Spider Hub V4.5 | Blox Fruits (Working Auto Hit & Real Extended Hitbox)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V4.5 | Blox Fruits",
+   Name = "Spider Hub V4.6 | Blox Fruits",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -18,7 +18,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -26,84 +25,6 @@ local LocalPlayer = Players.LocalPlayer
 local AutoFarm = false
 local SelectedWeapon = "Melee"
 local CurrentTarget = nil
-
-----------------------------------------------------------------
--- Straight Line Tween (توين مباشر بدون صعود ونزول)
-----------------------------------------------------------------
-local function DirectTween(targetCFrame)
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-    
-    local speed = 250
-    local targetPos = targetCFrame.Position
-    
-    while AutoFarm and (rootPart.Position - targetPos).Magnitude > 5 do
-        local dt = RunService.Heartbeat:Wait()
-        local currentPos = rootPart.Position
-        local direction = (targetPos - currentPos).Unit
-        local distance = (targetPos - currentPos).Magnitude
-        
-        local moveStep = math.min(distance, speed * dt)
-        local newPos = currentPos + (direction * moveStep)
-        
-        rootPart.CFrame = CFrame.new(newPos, targetPos)
-        rootPart.Velocity = Vector3.zero -- إلغاء السرعة لتفادي إرجاعك للخلف
-    end
-    
-    rootPart.CFrame = targetCFrame
-    rootPart.Velocity = Vector3.zero
-end
-
-----------------------------------------------------------------
--- Hitbox Magnifier (تكبير الهيت بوكس لضمان وصول الضرر)
-----------------------------------------------------------------
-local function ApplyHitbox(monster)
-    if not monster or not monster:FindFirstChild("HumanoidRootPart") then return end
-    pcall(function()
-        local hrp = monster.HumanoidRootPart
-        hrp.Size = Vector3.new(60, 60, 60)
-        hrp.Transparency = 0.7
-        hrp.Color = Color3.fromRGB(255, 0, 0)
-        hrp.Material = Enum.Material.Neon
-        hrp.CanCollide = false
-    end)
-end
-
-----------------------------------------------------------------
--- Working Auto Hit System (نظام الضرب المباشر السريع)
-----------------------------------------------------------------
-local function StartAutoHit()
-    task.spawn(function()
-        while AutoFarm do
-            task.wait(0.05)
-            if CurrentTarget and CurrentTarget:FindFirstChild("Humanoid") and CurrentTarget.Humanoid.Health > 0 then
-                pcall(function()
-                    local character = LocalPlayer.Character
-                    if not character then return end
-                    
-                    local tool = character:FindFirstChildOfClass("Tool")
-                    if tool then
-                        -- تفعيل الأداة
-                        tool:Activate()
-                        
-                        -- تنفيذ ضربات المحاكاة المباشرة
-                        VirtualUser:CaptureController()
-                        VirtualUser:Button1Down(Vector2.new(0, 0))
-                        
-                        -- استدعاء ريموت الهجوم القريب إن وجد بالسيرفر
-                        local netModule = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
-                        if netModule then
-                            local RegisterAttack = ReplicatedStorage.Modules.Net:FindFirstChild("RegisterAttack")
-                            local RegisterHits = ReplicatedStorage.Modules.Net:FindFirstChild("RegisterHits")
-                            if RegisterAttack then RegisterAttack:FireServer(0.1) end
-                            if RegisterHits then RegisterHits:FireServer(CurrentTarget.HumanoidRootPart, {CurrentTarget}) end
-                        end
-                    end
-                end)
-            end
-        end
-    end)
-end
 
 ----------------------------------------------------------------
 -- Equip Weapon
@@ -124,7 +45,85 @@ local function EquipWeapon(weaponType)
     end
 end
 
--- Master Database for Quests & Levels (Sea 1)
+----------------------------------------------------------------
+-- Real Big Hitbox (توسيع الهيت بوكس الحقيقي لتسجيل الضربات)
+----------------------------------------------------------------
+local function MakeBigHitbox(enemy)
+    if enemy and enemy:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local hrp = enemy.HumanoidRootPart
+            hrp.Size = Vector3.new(80, 80, 80)
+            hrp.Transparency = 0.5
+            hrp.Color = Color3.fromRGB(255, 0, 0)
+            hrp.Material = Enum.Material.Neon
+            hrp.CanCollide = false
+        end)
+    end
+end
+
+----------------------------------------------------------------
+-- Fast Auto Hit Loop (نظام الضرب المباشر السريع للوحوش)
+----------------------------------------------------------------
+local function StartAutoHitLoop()
+    task.spawn(function()
+        while AutoFarm do
+            task.wait(0.01)
+            if CurrentTarget and CurrentTarget:FindFirstChild("Humanoid") and CurrentTarget.Humanoid.Health > 0 then
+                pcall(function()
+                    EquipWeapon(SelectedWeapon)
+                    
+                    local character = LocalPlayer.Character
+                    if character then
+                        local tool = character:FindFirstChildOfClass("Tool")
+                        if tool then
+                            tool:Activate()
+                        end
+                    end
+                    
+                    -- إرسال أحداث الضرب المباشر لسيرفر اللعبة (Net RegisterAttack)
+                    local net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+                    if net then
+                        local regAttack = net:FindFirstChild("RegisterAttack")
+                        local regHits = net:FindFirstChild("RegisterHits")
+                        if regAttack then regAttack:FireServer(0) end
+                        if regHits and CurrentTarget:FindFirstChild("HumanoidRootPart") then 
+                            regHits:FireServer(CurrentTarget.HumanoidRootPart, {CurrentTarget}) 
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+----------------------------------------------------------------
+-- Direct Movement (توين مباشر خطي بدون توقف)
+----------------------------------------------------------------
+local function DirectTween(targetCFrame)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+    
+    local speed = 250
+    local targetPos = targetCFrame.Position
+    
+    while AutoFarm and (rootPart.Position - targetPos).Magnitude > 6 do
+        local dt = RunService.Heartbeat:Wait()
+        local currentPos = rootPart.Position
+        local direction = (targetPos - currentPos).Unit
+        local distance = (targetPos - currentPos).Magnitude
+        
+        local moveStep = math.min(distance, speed * dt)
+        local newPos = currentPos + (direction * moveStep)
+        
+        rootPart.CFrame = CFrame.new(newPos, targetPos)
+        rootPart.Velocity = Vector3.zero
+    end
+    
+    rootPart.CFrame = targetCFrame
+    rootPart.Velocity = Vector3.zero
+end
+
+-- Master Database for Quests & Levels (First Sea)
 local QuestDatabase = {
     {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059, 16, 1549), Area = CFrame.new(1145, 17, 1634)},
     {MinLvl = 10, MaxLvl = 14, QuestName = "JungleQuest", Monster = "Monkey", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1610, 36, 142)},
@@ -171,11 +170,11 @@ end
 
 -- Main Auto Farm Loop
 local function StartAutoFarm()
-    StartAutoHit()
+    StartAutoHitLoop()
     
     task.spawn(function()
         while AutoFarm do
-            task.wait(0.1)
+            task.wait(0.05)
             local questData = GetCurrentQuestData()
             
             if questData then
@@ -188,14 +187,12 @@ local function StartAutoFarm()
                         
                         while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 do
                             task.wait(0.02)
-                            ApplyHitbox(CurrentTarget)
+                            MakeBigHitbox(CurrentTarget)
                             
-                            -- الوقوف فوق العدو بمسافة 11 وحدة لعدم تلقي أي ضرر منه
-                            local safeTargetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 11, 0)
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = safeTargetCFrame
+                            -- الوقوف فوق العدو مباشرة بمسافة دقيقة لضمان إصابة الـ Hitbox
+                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
                             LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
-                            
-                            EquipWeapon(SelectedWeapon)
                         end
                         
                         repeat task.wait() until not CurrentTarget or not CurrentTarget.Parent
@@ -206,9 +203,9 @@ local function StartAutoFarm()
     end)
 end
 
--- UI Controls
+-- Controls
 MainTab:CreateToggle({
-   Name = "تفعيل Auto Farm الشامل",
+   Name = "اوتو لفل | Auto Lvl",
    CurrentValue = false,
    Flag = "AutoFarmToggle",
    Callback = function(Value)
@@ -220,7 +217,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateDropdown({
-   Name = "نوع السلاح",
+   Name = "نوع السلاح | Weapon Type",
    Options = {"Melee", "Sword", "Blox Fruit"},
    CurrentOption = "Melee",
    Flag = "WeaponDropdown",
