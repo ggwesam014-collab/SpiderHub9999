@@ -1,11 +1,11 @@
--- Target: Spider Hub V4.3 | Blox Fruits (Animation Remover & Damage Fix)
+-- Target: Spider Hub V4.4 | Blox Fruits (Direct Fast Auto Hit & Straight Tween)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V4.4 | Blox Fruits",
+   Name = "Spider Hub V4.5 | Blox Fruits",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -28,95 +28,80 @@ local SelectedWeapon = "Melee"
 local CurrentTarget = nil
 
 ----------------------------------------------------------------
--- Remove Tool Animations (حذف جميع أنميشنات الأدوات والأسلحة)
+-- Straight Line Tween (توين مباشر بدون صعود ونزول)
 ----------------------------------------------------------------
-local function RemoveAnimations()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        local animator = humanoid:FindFirstChildOfClass("Animator")
-        if animator then
-            animator:Destroy() -- حذف محرك الأنميشن لمنع أي حركة للسلاح
-        end
-    end
-end
-
-----------------------------------------------------------------
--- Fast Attack / Direct Damage (تفعيل الضرر المباشر)
-----------------------------------------------------------------
-local function DirectAttack()
-    pcall(function()
-        local character = LocalPlayer.Character
-        if not character then return end
-        
-        local tool = character:FindFirstChildOfClass("Tool")
-        if tool then
-            -- إلغاء أنميشن الضرب الجاري
-            if character:FindFirstChildOfClass("Humanoid") then
-                for _, track in pairs(character.Humanoid:GetPlayingAnimationTracks()) do
-                    track:Stop()
-                end
-            end
-            
-            -- تفعيل أداة القتال
-            tool:Activate()
-            
-            -- محاكاة الهجوم الأساسي عبر VirtualUser
-            VirtualUser:CaptureController()
-            VirtualUser:Button1Down(Vector2.new(1, 1))
-        end
-    end)
-end
-
-----------------------------------------------------------------
--- Custom Smooth Tween (توين بدون قفل الكاميرا)
-----------------------------------------------------------------
-local function CustomTween(targetCFrame)
+local function DirectTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     
-    local startPos = rootPart.Position
-    local endPos = targetCFrame.Position
-    local flyHeight = math.max(startPos.Y, endPos.Y) + 35
+    local speed = 250
+    local targetPos = targetCFrame.Position
     
-    local waypoints = {
-        Vector3.new(startPos.X, flyHeight, startPos.Z),
-        Vector3.new(endPos.X, flyHeight, endPos.Z),
-        endPos
-    }
-
-    local speed = 230
-    
-    for _, waypoint in ipairs(waypoints) do
-        while AutoFarm and (rootPart.Position - waypoint).Magnitude > 4 do
-            local dt = RunService.Heartbeat:Wait()
-            local currentPos = rootPart.Position
-            local direction = (waypoint - currentPos).Unit
-            local distance = (waypoint - currentPos).Magnitude
-            
-            local moveStep = math.min(distance, speed * dt)
-            local newPos = currentPos + (direction * moveStep)
-            
-            rootPart.CFrame = CFrame.new(newPos, waypoint)
-            rootPart.Velocity = Vector3.zero
-        end
+    while AutoFarm and (rootPart.Position - targetPos).Magnitude > 5 do
+        local dt = RunService.Heartbeat:Wait()
+        local currentPos = rootPart.Position
+        local direction = (targetPos - currentPos).Unit
+        local distance = (targetPos - currentPos).Magnitude
+        
+        local moveStep = math.min(distance, speed * dt)
+        local newPos = currentPos + (direction * moveStep)
+        
+        rootPart.CFrame = CFrame.new(newPos, targetPos)
+        rootPart.Velocity = Vector3.zero -- إلغاء السرعة لتفادي إرجاعك للخلف
     end
     
     rootPart.CFrame = targetCFrame
+    rootPart.Velocity = Vector3.zero
 end
 
 ----------------------------------------------------------------
--- Expand Hitbox (تكبير الهيت بوكس)
+-- Hitbox Magnifier (تكبير الهيت بوكس لضمان وصول الضرر)
 ----------------------------------------------------------------
-local function ExpandHitbox(monster)
+local function ApplyHitbox(monster)
     if not monster or not monster:FindFirstChild("HumanoidRootPart") then return end
     pcall(function()
         local hrp = monster.HumanoidRootPart
-        hrp.Size = Vector3.new(40, 40, 40)
+        hrp.Size = Vector3.new(60, 60, 60)
         hrp.Transparency = 0.7
         hrp.Color = Color3.fromRGB(255, 0, 0)
         hrp.Material = Enum.Material.Neon
         hrp.CanCollide = false
+    end)
+end
+
+----------------------------------------------------------------
+-- Working Auto Hit System (نظام الضرب المباشر السريع)
+----------------------------------------------------------------
+local function StartAutoHit()
+    task.spawn(function()
+        while AutoFarm do
+            task.wait(0.05)
+            if CurrentTarget and CurrentTarget:FindFirstChild("Humanoid") and CurrentTarget.Humanoid.Health > 0 then
+                pcall(function()
+                    local character = LocalPlayer.Character
+                    if not character then return end
+                    
+                    local tool = character:FindFirstChildOfClass("Tool")
+                    if tool then
+                        -- تفعيل الأداة
+                        tool:Activate()
+                        
+                        -- تنفيذ ضربات المحاكاة المباشرة
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(0, 0))
+                        
+                        -- استدعاء ريموت الهجوم القريب إن وجد بالسيرفر
+                        local netModule = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+                        if netModule then
+                            local RegisterAttack = ReplicatedStorage.Modules.Net:FindFirstChild("RegisterAttack")
+                            local RegisterHits = ReplicatedStorage.Modules.Net:FindFirstChild("RegisterHits")
+                            if RegisterAttack then RegisterAttack:FireServer(0.1) end
+                            if RegisterHits then RegisterHits:FireServer(CurrentTarget.HumanoidRootPart, {CurrentTarget}) end
+                        end
+                    end
+                end)
+            end
+        end
     end)
 end
 
@@ -172,58 +157,45 @@ local function GetCurrentQuestData()
     return QuestDatabase[1]
 end
 
-----------------------------------------------------------------
--- Quest Manager (التحقق وإعادة إجبار أخذ المهمة)
-----------------------------------------------------------------
 local function CheckAndGetQuest(questData)
     local mainGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
     local questUI = mainGui and mainGui:FindFirstChild("Quest")
     
-    -- إذا لم تكن القائمة موجودة أو غير ظاهرة، اذهب فوراً لأخذها
     if not questUI or not questUI.Visible then
-        CustomTween(questData.NPC)
-        task.wait(0.3)
+        DirectTween(questData.NPC)
+        task.wait(0.2)
         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
-        task.wait(0.5)
-        return
-    end
-
-    -- إذا كانت هناك مهمة جارية لحيوان آخر، قم بإلغائها وأخذ المناسبة
-    if questUI.Visible and not string.find(questUI.Container.QuestTitle.Title.Text, questData.Monster) then
-        ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
         task.wait(0.3)
-        CustomTween(questData.NPC)
-        task.wait(0.3)
-        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
     end
 end
 
 -- Main Auto Farm Loop
 local function StartAutoFarm()
+    StartAutoHit()
+    
     task.spawn(function()
         while AutoFarm do
             task.wait(0.1)
-            RemoveAnimations()
             local questData = GetCurrentQuestData()
             
             if questData then
                 CheckAndGetQuest(questData)
-                CustomTween(questData.Area)
+                DirectTween(questData.Area)
                 
                 for _, monster in pairs(Workspace.Enemies:GetChildren()) do
                     if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
                         CurrentTarget = monster
                         
                         while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 do
-                            task.wait(0.03)
-                            ExpandHitbox(CurrentTarget)
+                            task.wait(0.02)
+                            ApplyHitbox(CurrentTarget)
                             
-                            -- الاقتراب لارتفاع دقيق ليقبل السيرفر احتساب الضربات
-                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 3, 0)
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
+                            -- الوقوف فوق العدو بمسافة 11 وحدة لعدم تلقي أي ضرر منه
+                            local safeTargetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 11, 0)
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = safeTargetCFrame
+                            LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
                             
                             EquipWeapon(SelectedWeapon)
-                            DirectAttack()
                         end
                         
                         repeat task.wait() until not CurrentTarget or not CurrentTarget.Parent
