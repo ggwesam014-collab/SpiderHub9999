@@ -1,11 +1,11 @@
--- Target: Spider Hub V4.5 | Blox Fruits (Working Auto Hit & Real Extended Hitbox)
+-- Target: Spider Hub V5.0 | Blox Fruits (Full Sea 1-3 Auto Farm to Lvl 2800)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V4.6 | Blox Fruits",
+   Name = "Spider Hub V5.0 | Blox Fruits (Lvl 2800)",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -25,6 +26,31 @@ local LocalPlayer = Players.LocalPlayer
 local AutoFarm = false
 local SelectedWeapon = "Melee"
 local CurrentTarget = nil
+
+----------------------------------------------------------------
+-- Disable Effects & Animations (إلغاء التأثيرات والأنميشن)
+----------------------------------------------------------------
+local function CleanPlayerEffects()
+    pcall(function()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local animator = hum:FindFirstChildOfClass("Animator")
+            if animator then animator:Destroy() end
+            for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end
+    end)
+end
+
+-- Clear VFX Particles
+Workspace.ChildAdded:Connect(function(child)
+    if child.Name:find("Particle") or child.Name:find("Effect") or child.Name:find("Emitter") then
+        task.wait()
+        child:Destroy()
+    end
+end)
 
 ----------------------------------------------------------------
 -- Equip Weapon
@@ -46,14 +72,14 @@ local function EquipWeapon(weaponType)
 end
 
 ----------------------------------------------------------------
--- Real Big Hitbox (توسيع الهيت بوكس الحقيقي لتسجيل الضربات)
+-- Big Hitbox (توسيع الهيت بوكس)
 ----------------------------------------------------------------
 local function MakeBigHitbox(enemy)
     if enemy and enemy:FindFirstChild("HumanoidRootPart") then
         pcall(function()
             local hrp = enemy.HumanoidRootPart
-            hrp.Size = Vector3.new(80, 80, 80)
-            hrp.Transparency = 0.5
+            hrp.Size = Vector3.new(70, 70, 70)
+            hrp.Transparency = 0.6
             hrp.Color = Color3.fromRGB(255, 0, 0)
             hrp.Material = Enum.Material.Neon
             hrp.CanCollide = false
@@ -62,9 +88,9 @@ local function MakeBigHitbox(enemy)
 end
 
 ----------------------------------------------------------------
--- Fast Auto Hit Loop (نظام الضرب المباشر السريع للوحوش)
+-- Real Fast Auto Hit System (نظام الضرب المباشر)
 ----------------------------------------------------------------
-local function StartAutoHitLoop()
+local function StartAutoHit()
     task.spawn(function()
         while AutoFarm do
             task.wait(0.01)
@@ -72,22 +98,16 @@ local function StartAutoHitLoop()
                 pcall(function()
                     EquipWeapon(SelectedWeapon)
                     
-                    local character = LocalPlayer.Character
-                    if character then
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then
-                            tool:Activate()
-                        end
-                    end
+                    -- محاكاة كليك الماوس المباشر بالسيرفر
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                     
-                    -- إرسال أحداث الضرب المباشر لسيرفر اللعبة (Net RegisterAttack)
+                    -- استدعاء ريموتات الضرب للمزيد من التأكيد
                     local net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
                     if net then
-                        local regAttack = net:FindFirstChild("RegisterAttack")
-                        local regHits = net:FindFirstChild("RegisterHits")
-                        if regAttack then regAttack:FireServer(0) end
-                        if regHits and CurrentTarget:FindFirstChild("HumanoidRootPart") then 
-                            regHits:FireServer(CurrentTarget.HumanoidRootPart, {CurrentTarget}) 
+                        if net:FindFirstChild("RegisterAttack") then net.RegisterAttack:FireServer(0) end
+                        if net:FindFirstChild("RegisterHits") and CurrentTarget:FindFirstChild("HumanoidRootPart") then
+                            net.RegisterHits:FireServer(CurrentTarget.HumanoidRootPart, {CurrentTarget})
                         end
                     end
                 end)
@@ -97,16 +117,16 @@ local function StartAutoHitLoop()
 end
 
 ----------------------------------------------------------------
--- Direct Movement (توين مباشر خطي بدون توقف)
+-- Fast Direct Tween (توين سريع ومباشر)
 ----------------------------------------------------------------
 local function DirectTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     
-    local speed = 250
+    local speed = 300
     local targetPos = targetCFrame.Position
     
-    while AutoFarm and (rootPart.Position - targetPos).Magnitude > 6 do
+    while AutoFarm and (rootPart.Position - targetPos).Magnitude > 8 do
         local dt = RunService.Heartbeat:Wait()
         local currentPos = rootPart.Position
         local direction = (targetPos - currentPos).Unit
@@ -123,20 +143,18 @@ local function DirectTween(targetCFrame)
     rootPart.Velocity = Vector3.zero
 end
 
--- Master Database for Quests & Levels (First Sea)
-local QuestDatabase = {
+----------------------------------------------------------------
+-- Quest & Sea Databases (Sea 1, 2, 3 - Lvl 1 to 2800)
+----------------------------------------------------------------
+local Sea1_Quests = {
     {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059, 16, 1549), Area = CFrame.new(1145, 17, 1634)},
     {MinLvl = 10, MaxLvl = 14, QuestName = "JungleQuest", Monster = "Monkey", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1610, 36, 142)},
     {MinLvl = 15, MaxLvl = 29, QuestName = "JungleQuest", Monster = "Gorilla", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1240, 6, -490)},
-    {MinLvl = 30, MaxLvl = 39, QuestName = "BuggyQuest1", Monster = "Pirate", NPC = CFrame.new(-1140, 4, 3828), Area = CFrame.new(-1215, 4, 3910)},
-    {MinLvl = 40, MaxLvl = 59, QuestName = "BuggyQuest1", Monster = "Brute", NPC = CFrame.new(-1140, 4, 3828), Area = CFrame.new(-1146, 77, 4171)},
-    {MinLvl = 60, MaxLvl = 74, QuestName = "DesertQuest", Monster = "Desert Bandit", NPC = CFrame.new(894, 6, 4382), Area = CFrame.new(932, 6, 4484)},
-    {MinLvl = 75, MaxLvl = 89, QuestName = "DesertQuest", Monster = "Desert Officer", NPC = CFrame.new(894, 6, 4382), Area = CFrame.new(1572, 10, 4374)},
-    {MinLvl = 90, MaxLvl = 99, QuestName = "SnowQuest", Monster = "Snow Bandit", NPC = CFrame.new(1386, 87, -1298), Area = CFrame.new(1287, 105, -1380)},
-    {MinLvl = 100, MaxLvl = 119, QuestName = "SnowQuest", Monster = "Snowman", NPC = CFrame.new(1386, 87, -1298), Area = CFrame.new(1287, 105, -1380)},
+    {MinLvl = 30, MaxLvl = 59, QuestName = "BuggyQuest1", Monster = "Pirate", NPC = CFrame.new(-1140, 4, 3828), Area = CFrame.new(-1215, 4, 3910)},
+    {MinLvl = 60, MaxLvl = 89, QuestName = "DesertQuest", Monster = "Desert Bandit", NPC = CFrame.new(894, 6, 4382), Area = CFrame.new(932, 6, 4484)},
+    {MinLvl = 90, MaxLvl = 119, QuestName = "SnowQuest", Monster = "Snow Bandit", NPC = CFrame.new(1386, 87, -1298), Area = CFrame.new(1287, 105, -1380)},
     {MinLvl = 120, MaxLvl = 149, QuestName = "MarineQuest2", Monster = "Chief Petty Officer", NPC = CFrame.new(-5030, 20, 4320), Area = CFrame.new(-4850, 20, 4300)},
-    {MinLvl = 150, MaxLvl = 174, QuestName = "SkyQuest", Monster = "Sky Bandit", NPC = CFrame.new(-4840, 718, -2620), Area = CFrame.new(-4970, 720, -2890)},
-    {MinLvl = 175, MaxLvl = 189, QuestName = "SkyQuest", Monster = "Dark Master", NPC = CFrame.new(-4840, 718, -2620), Area = CFrame.new(-5220, 390, -2270)},
+    {MinLvl = 150, MaxLvl = 189, QuestName = "SkyQuest", Monster = "Sky Bandit", NPC = CFrame.new(-4840, 718, -2620), Area = CFrame.new(-4970, 720, -2890)},
     {MinLvl = 190, MaxLvl = 224, QuestName = "PrisonerQuest", Monster = "Prisoner", NPC = CFrame.new(530, 1, 4740), Area = CFrame.new(530, 1, 4740)},
     {MinLvl = 225, MaxLvl = 299, QuestName = "ColosseumQuest", Monster = "Toga Warrior", NPC = CFrame.new(-1580, 7, -2980), Area = CFrame.new(-1800, 7, -2980)},
     {MinLvl = 300, MaxLvl = 374, QuestName = "MagmaQuest", Monster = "Military Soldier", NPC = CFrame.new(-5310, 12, 8515), Area = CFrame.new(-5400, 12, 8500)},
@@ -146,66 +164,112 @@ local QuestDatabase = {
     {MinLvl = 625, MaxLvl = 699, QuestName = "FountainQuest", Monster = "Galley Pirate", NPC = CFrame.new(5250, 38, 4050), Area = CFrame.new(5500, 38, 3900)},
 }
 
+local Sea2_Quests = {
+    {MinLvl = 700, MaxLvl = 774, QuestName = "Area1Quest", Monster = "Raider", NPC = CFrame.new(-425, 73, 1835), Area = CFrame.new(-500, 90, 1700)},
+    {MinLvl = 775, MaxLvl = 874, QuestName = "Area2Quest", Monster = "Mercenary", NPC = CFrame.new(635, 73, 918), Area = CFrame.new(800, 90, 1000)},
+    {MinLvl = 875, MaxLvl = 999, QuestName = "ZombieQuest", Monster = "Zombie", NPC = CFrame.new(-5490, 48, -795), Area = CFrame.new(-5600, 50, -850)},
+    {MinLvl = 1000, MaxLvl = 1124, QuestName = "SnowMountainQuest", Monster = "Snow Trooper", NPC = CFrame.new(605, 401, -5370), Area = CFrame.new(500, 410, -5200)},
+    {MinLvl = 1125, MaxLvl = 1249, QuestName = "IceSideQuest", Monster = "Lab Subordinate", NPC = CFrame.new(-6060, 16, -4900), Area = CFrame.new(-5800, 20, -4800)},
+    {MinLvl = 1250, MaxLvl = 1349, QuestName = "ShipQuest1", Monster = "Ship Deckhand", NPC = CFrame.new(1030, 125, 32900), Area = CFrame.new(1100, 130, 33000)},
+    {MinLvl = 1350, MaxLvl = 1499, QuestName = "FrostQuest", Monster = "Arctic Warrior", NPC = CFrame.new(5670, 28, -6480), Area = CFrame.new(6000, 30, -6200)},
+}
+
+local Sea3_Quests = {
+    {MinLvl = 1500, MaxLvl = 1574, QuestName = "PiratePortQuest", Monster = "Pirate Millionaire", NPC = CFrame.new(-290, 44, 5580), Area = CFrame.new(-300, 50, 5400)},
+    {MinLvl = 1575, MaxLvl = 1699, QuestName = "AmazonQuest", Monster = "Pistol Billionaire", NPC = CFrame.new(5830, 52, -1100), Area = CFrame.new(6000, 60, -1200)},
+    {MinLvl = 1700, MaxLvl = 1824, QuestName = "MarineTreeQuest", Monster = "Marine Commodore", NPC = CFrame.new(2180, 28, -6740), Area = CFrame.new(2300, 30, -6800)},
+    {MinLvl = 1825, MaxLvl = 1999, QuestName = "DeepForestIslandQuest", Monster = "Forest Pirate", NPC = CFrame.new(-13230, 332, -7625), Area = CFrame.new(-13300, 330, -7500)},
+    {MinLvl = 2000, MaxLvl = 2249, QuestName = "HauntedQuest1", Monster = "Living Skeleton", NPC = CFrame.new(-9515, 142, 5520), Area = CFrame.new(-9600, 140, 5600)},
+    {MinLvl = 2250, MaxLvl = 2499, QuestName = "PeanutQuest", Monster = "Peanut Scout", NPC = CFrame.new(-2100, 38, -10190), Area = CFrame.new(-2000, 40, -10300)},
+    {MinLvl = 2500, MaxLvl = 2800, QuestName = "TikiQuest1", Monster = "Isle Outlaw", NPC = CFrame.new(-16530, 55, -172.5), Area = CFrame.new(-16400, 60, -200)},
+}
+
 local function GetCurrentQuestData()
     local level = LocalPlayer.Data.Level.Value
-    for _, q in pairs(QuestDatabase) do
+    local placeId = game.PlaceId
+    
+    local questList = Sea1_Quests
+    if placeId == 4442272183 then
+        questList = Sea2_Quests
+    elseif placeId == 7449423635 then
+        questList = Sea3_Quests
+    end
+    
+    for _, q in pairs(questList) do
         if level >= q.MinLvl and level <= q.MaxLvl then
             return q
         end
     end
-    return QuestDatabase[1]
+    return questList[#questList]
 end
 
-local function CheckAndGetQuest(questData)
+----------------------------------------------------------------
+-- Instant Quest Handler (التحقق الفوري من المهمة وإعادة أخذها)
+----------------------------------------------------------------
+local function HasQuest()
     local mainGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
     local questUI = mainGui and mainGui:FindFirstChild("Quest")
-    
-    if not questUI or not questUI.Visible then
+    return questUI and questUI.Visible and questUI.Container.QuestTitle.Title.Text ~= ""
+end
+
+local function EnsureQuest(questData)
+    if not HasQuest() then
         DirectTween(questData.NPC)
-        task.wait(0.2)
+        task.wait(0.1)
         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
-        task.wait(0.3)
+        task.wait(0.2)
     end
 end
 
--- Main Auto Farm Loop
+----------------------------------------------------------------
+-- Main Fast Auto Farm Loop
+----------------------------------------------------------------
 local function StartAutoFarm()
-    StartAutoHitLoop()
+    StartAutoHit()
     
     task.spawn(function()
         while AutoFarm do
-            task.wait(0.05)
-            local questData = GetCurrentQuestData()
+            task.wait(0.01)
+            CleanPlayerEffects()
             
+            local questData = GetCurrentQuestData()
             if questData then
-                CheckAndGetQuest(questData)
-                DirectTween(questData.Area)
+                EnsureQuest(questData)
                 
+                -- البحث عن وحش فوراً بدون انتظار
+                local foundEnemy = false
                 for _, monster in pairs(Workspace.Enemies:GetChildren()) do
                     if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
+                        foundEnemy = true
                         CurrentTarget = monster
                         
-                        while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 do
-                            task.wait(0.02)
+                        -- قتل الوحش والوقوف فوقه
+                        while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 and HasQuest() do
+                            task.wait(0.01)
                             MakeBigHitbox(CurrentTarget)
                             
-                            -- الوقوف فوق العدو مباشرة بمسافة دقيقة لضمان إصابة الـ Hitbox
                             local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
                             LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
                             LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
                         end
                         
-                        repeat task.wait() until not CurrentTarget or not CurrentTarget.Parent
+                        CurrentTarget = nil
+                        break -- الانتقال الفوري للوحش التالي
                     end
+                end
+                
+                -- إذا لم يجد وحوش أو انتهت المهمة يرجع لمنطقة التجمع
+                if not foundEnemy and HasQuest() then
+                    DirectTween(questData.Area)
                 end
             end
         end
     end)
 end
 
--- Controls
+-- UI Controls
 MainTab:CreateToggle({
-   Name = "اوتو لفل | Auto Lvl",
+   Name = "تفعيل Auto Farm الشامل (1-2800)",
    CurrentValue = false,
    Flag = "AutoFarmToggle",
    Callback = function(Value)
@@ -217,7 +281,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateDropdown({
-   Name = "نوع السلاح | Weapon Type",
+   Name = "نوع السلاح",
    Options = {"Melee", "Sword", "Blox Fruit"},
    CurrentOption = "Melee",
    Flag = "WeaponDropdown",
