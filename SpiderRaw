@@ -1,11 +1,11 @@
--- Target: Spider Hub V5.0 | Blox Fruits (Full Sea 1-3 Auto Farm to Lvl 2800)
+-- Target: Spider Hub V5.1 | Blox Fruits (Fixed Quest Teleport Loop & Fast Farm)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V5.0 | Blox Fruits (Lvl 2800)",
+   Name = "Spider Hub V5.1 | Blox Fruits",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -26,9 +26,10 @@ local LocalPlayer = Players.LocalPlayer
 local AutoFarm = false
 local SelectedWeapon = "Melee"
 local CurrentTarget = nil
+local GettingQuest = false -- مؤشر حماية لمنع التكرار والـ Teleport المستمر
 
 ----------------------------------------------------------------
--- Disable Effects & Animations (إلغاء التأثيرات والأنميشن)
+-- Disable Effects & Animations
 ----------------------------------------------------------------
 local function CleanPlayerEffects()
     pcall(function()
@@ -43,14 +44,6 @@ local function CleanPlayerEffects()
         end
     end)
 end
-
--- Clear VFX Particles
-Workspace.ChildAdded:Connect(function(child)
-    if child.Name:find("Particle") or child.Name:find("Effect") or child.Name:find("Emitter") then
-        task.wait()
-        child:Destroy()
-    end
-end)
 
 ----------------------------------------------------------------
 -- Equip Weapon
@@ -72,7 +65,7 @@ local function EquipWeapon(weaponType)
 end
 
 ----------------------------------------------------------------
--- Big Hitbox (توسيع الهيت بوكس)
+-- Big Hitbox
 ----------------------------------------------------------------
 local function MakeBigHitbox(enemy)
     if enemy and enemy:FindFirstChild("HumanoidRootPart") then
@@ -88,7 +81,7 @@ local function MakeBigHitbox(enemy)
 end
 
 ----------------------------------------------------------------
--- Real Fast Auto Hit System (نظام الضرب المباشر)
+-- Fast Auto Hit System
 ----------------------------------------------------------------
 local function StartAutoHit()
     task.spawn(function()
@@ -98,11 +91,9 @@ local function StartAutoHit()
                 pcall(function()
                     EquipWeapon(SelectedWeapon)
                     
-                    -- محاكاة كليك الماوس المباشر بالسيرفر
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                     
-                    -- استدعاء ريموتات الضرب للمزيد من التأكيد
                     local net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
                     if net then
                         if net:FindFirstChild("RegisterAttack") then net.RegisterAttack:FireServer(0) end
@@ -117,7 +108,7 @@ local function StartAutoHit()
 end
 
 ----------------------------------------------------------------
--- Fast Direct Tween (توين سريع ومباشر)
+-- Fast Direct Tween
 ----------------------------------------------------------------
 local function DirectTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -144,7 +135,7 @@ local function DirectTween(targetCFrame)
 end
 
 ----------------------------------------------------------------
--- Quest & Sea Databases (Sea 1, 2, 3 - Lvl 1 to 2800)
+-- Databases (Sea 1, 2, 3 - Lvl 1 to 2800)
 ----------------------------------------------------------------
 local Sea1_Quests = {
     {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059, 16, 1549), Area = CFrame.new(1145, 17, 1634)},
@@ -204,7 +195,7 @@ local function GetCurrentQuestData()
 end
 
 ----------------------------------------------------------------
--- Instant Quest Handler (التحقق الفوري من المهمة وإعادة أخذها)
+-- Fixed Quest Checking & Safe Fetching
 ----------------------------------------------------------------
 local function HasQuest()
     local mainGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
@@ -213,12 +204,18 @@ local function HasQuest()
 end
 
 local function EnsureQuest(questData)
-    if not HasQuest() then
-        DirectTween(questData.NPC)
-        task.wait(0.1)
+    if HasQuest() or GettingQuest then return end
+    
+    GettingQuest = true
+    DirectTween(questData.NPC)
+    task.wait(0.2)
+    
+    pcall(function()
         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
-        task.wait(0.2)
-    end
+    end)
+    
+    task.wait(0.5) -- مهلة زمنية للتأكد من وصول أخذ المهمة من السيرفر
+    GettingQuest = false
 end
 
 ----------------------------------------------------------------
@@ -229,38 +226,37 @@ local function StartAutoFarm()
     
     task.spawn(function()
         while AutoFarm do
-            task.wait(0.01)
+            task.wait(0.02)
             CleanPlayerEffects()
             
             local questData = GetCurrentQuestData()
             if questData then
                 EnsureQuest(questData)
                 
-                -- البحث عن وحش فوراً بدون انتظار
-                local foundEnemy = false
-                for _, monster in pairs(Workspace.Enemies:GetChildren()) do
-                    if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
-                        foundEnemy = true
-                        CurrentTarget = monster
-                        
-                        -- قتل الوحش والوقوف فوقه
-                        while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 and HasQuest() do
-                            task.wait(0.01)
-                            MakeBigHitbox(CurrentTarget)
+                if HasQuest() then
+                    local foundEnemy = false
+                    for _, monster in pairs(Workspace.Enemies:GetChildren()) do
+                        if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
+                            foundEnemy = true
+                            CurrentTarget = monster
                             
-                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
-                            LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
-                            LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
+                            while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 and HasQuest() do
+                                task.wait(0.01)
+                                MakeBigHitbox(CurrentTarget)
+                                
+                                local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
+                                LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
+                                LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
+                            end
+                            
+                            CurrentTarget = nil
+                            break
                         end
-                        
-                        CurrentTarget = nil
-                        break -- الانتقال الفوري للوحش التالي
                     end
-                end
-                
-                -- إذا لم يجد وحوش أو انتهت المهمة يرجع لمنطقة التجمع
-                if not foundEnemy and HasQuest() then
-                    DirectTween(questData.Area)
+                    
+                    if not foundEnemy then
+                        DirectTween(questData.Area)
+                    end
                 end
             end
         end
@@ -269,7 +265,7 @@ end
 
 -- UI Controls
 MainTab:CreateToggle({
-   Name = "تفعيل Auto Farm الشامل (1-2800)",
+   Name = "اوتو لفل | Auto Lvl",
    CurrentValue = false,
    Flag = "AutoFarmToggle",
    Callback = function(Value)
@@ -281,7 +277,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateDropdown({
-   Name = "نوع السلاح",
+   Name = "نوع السلاح | WeaponType",
    Options = {"Melee", "Sword", "Blox Fruit"},
    CurrentOption = "Melee",
    Flag = "WeaponDropdown",
