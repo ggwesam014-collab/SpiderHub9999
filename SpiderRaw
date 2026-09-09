@@ -1,4 +1,4 @@
--- Target: Spider Hub V4.2 | Blox Fruits (Fixed Camera & Working Big Hitbox)
+-- Target: Spider Hub V4.3 | Blox Fruits (Animation Remover & Damage Fix)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
@@ -21,7 +21,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
 -- Variables
 local AutoFarm = false
@@ -29,33 +28,48 @@ local SelectedWeapon = "Melee"
 local CurrentTarget = nil
 
 ----------------------------------------------------------------
--- Fixed Camera System (تتبع الكاميرا بسلاسة بدون أي اهتزاز)
+-- Remove Tool Animations (حذف جميع أنميشنات الأدوات والأسلحة)
 ----------------------------------------------------------------
-local CameraConnection = nil
+local function RemoveAnimations()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            animator:Destroy() -- حذف محرك الأنميشن لمنع أي حركة للسلاح
+        end
+    end
+end
 
-local function StartCameraFollow()
-    if CameraConnection then CameraConnection:Disconnect() end
-    
-    Camera.CameraType = Enum.CameraType.Scriptable
-    CameraConnection = RunService.RenderStepped:Connect(function()
-        if AutoFarm and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local root = LocalPlayer.Character.HumanoidRootPart
-            -- الكاميرا تتبع اللاعب من الخلف بمسافة ثابتة لمنع الاهتزاز
-            Camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 12, 15), root.Position)
+----------------------------------------------------------------
+-- Fast Attack / Direct Damage (تفعيل الضرر المباشر)
+----------------------------------------------------------------
+local function DirectAttack()
+    pcall(function()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local tool = character:FindFirstChildOfClass("Tool")
+        if tool then
+            -- إلغاء أنميشن الضرب الجاري
+            if character:FindFirstChildOfClass("Humanoid") then
+                for _, track in pairs(character.Humanoid:GetPlayingAnimationTracks()) do
+                    track:Stop()
+                end
+            end
+            
+            -- تفعيل أداة القتال
+            tool:Activate()
+            
+            -- محاكاة الهجوم الأساسي عبر VirtualUser
+            VirtualUser:CaptureController()
+            VirtualUser:Button1Down(Vector2.new(1, 1))
         end
     end)
 end
 
-local function StopCameraFollow()
-    if CameraConnection then
-        CameraConnection:Disconnect()
-        CameraConnection = nil
-    end
-    Camera.CameraType = Enum.CameraType.Custom
-end
-
 ----------------------------------------------------------------
--- Custom Smooth Tween System (تنقل آمن وسلس عبر الهواء)
+-- Custom Smooth Tween (توين بدون قفل الكاميرا)
 ----------------------------------------------------------------
 local function CustomTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -63,7 +77,7 @@ local function CustomTween(targetCFrame)
     
     local startPos = rootPart.Position
     local endPos = targetCFrame.Position
-    local flyHeight = math.max(startPos.Y, endPos.Y) + 40
+    local flyHeight = math.max(startPos.Y, endPos.Y) + 35
     
     local waypoints = {
         Vector3.new(startPos.X, flyHeight, startPos.Z),
@@ -71,7 +85,7 @@ local function CustomTween(targetCFrame)
         endPos
     }
 
-    local speed = 220
+    local speed = 230
     
     for _, waypoint in ipairs(waypoints) do
         while AutoFarm and (rootPart.Position - waypoint).Magnitude > 4 do
@@ -92,25 +106,22 @@ local function CustomTween(targetCFrame)
 end
 
 ----------------------------------------------------------------
--- Working Big Hitbox (تكبير وتعديل الهيت بوكس بشكل صحيح)
+-- Expand Hitbox (تكبير الهيت بوكس)
 ----------------------------------------------------------------
 local function ExpandHitbox(monster)
-    if not monster then return end
-    
+    if not monster or not monster:FindFirstChild("HumanoidRootPart") then return end
     pcall(function()
-        local hrp = monster:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Size = Vector3.new(45, 45, 45)
-            hrp.Transparency = 0.6
-            hrp.Color = Color3.fromRGB(255, 0, 0)
-            hrp.Material = Enum.Material.Neon
-            hrp.CanCollide = false
-        end
+        local hrp = monster.HumanoidRootPart
+        hrp.Size = Vector3.new(40, 40, 40)
+        hrp.Transparency = 0.7
+        hrp.Color = Color3.fromRGB(255, 0, 0)
+        hrp.Material = Enum.Material.Neon
+        hrp.CanCollide = false
     end)
 end
 
 ----------------------------------------------------------------
--- Auto Attack & Equip Weapon
+-- Equip Weapon
 ----------------------------------------------------------------
 local function EquipWeapon(weaponType)
     local character = LocalPlayer.Character
@@ -128,29 +139,7 @@ local function EquipWeapon(weaponType)
     end
 end
 
-local function FastAttackLoop()
-    task.spawn(function()
-        while AutoFarm do
-            task.wait(0.08)
-            if CurrentTarget and CurrentTarget:FindFirstChild("Humanoid") and CurrentTarget.Humanoid.Health > 0 then
-                pcall(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:Button1Down(Vector2.new(0, 0))
-                    
-                    local character = LocalPlayer.Character
-                    if character then
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then
-                            tool:Activate()
-                        end
-                    end
-                end)
-            end
-        end
-    end)
-end
-
--- Database Quests (Sea 1)
+-- Master Database for Quests & Levels (Sea 1)
 local QuestDatabase = {
     {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059, 16, 1549), Area = CFrame.new(1145, 17, 1634)},
     {MinLvl = 10, MaxLvl = 14, QuestName = "JungleQuest", Monster = "Monkey", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1610, 36, 142)},
@@ -183,36 +172,42 @@ local function GetCurrentQuestData()
     return QuestDatabase[1]
 end
 
-local function ManageQuest(questData)
-    local questUI = LocalPlayer.PlayerGui:FindFirstChild("Main") and LocalPlayer.PlayerGui.Main:FindFirstChild("Quest")
+----------------------------------------------------------------
+-- Quest Manager (التحقق وإعادة إجبار أخذ المهمة)
+----------------------------------------------------------------
+local function CheckAndGetQuest(questData)
+    local mainGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
+    local questUI = mainGui and mainGui:FindFirstChild("Quest")
     
-    if questUI and questUI.Visible then
-        if not string.find(questUI.Container.QuestTitle.Title.Text, questData.Monster) then
-            ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
-            task.wait(0.5)
-        else
-            return true
-        end
+    -- إذا لم تكن القائمة موجودة أو غير ظاهرة، اذهب فوراً لأخذها
+    if not questUI or not questUI.Visible then
+        CustomTween(questData.NPC)
+        task.wait(0.3)
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
+        task.wait(0.5)
+        return
     end
-    
-    CustomTween(questData.NPC)
-    task.wait(0.3)
-    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
-    return true
+
+    -- إذا كانت هناك مهمة جارية لحيوان آخر، قم بإلغائها وأخذ المناسبة
+    if questUI.Visible and not string.find(questUI.Container.QuestTitle.Title.Text, questData.Monster) then
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
+        task.wait(0.3)
+        CustomTween(questData.NPC)
+        task.wait(0.3)
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
+    end
 end
 
 -- Main Auto Farm Loop
 local function StartAutoFarm()
-    StartCameraFollow()
-    FastAttackLoop()
-    
     task.spawn(function()
         while AutoFarm do
-            task.wait()
+            task.wait(0.1)
+            RemoveAnimations()
             local questData = GetCurrentQuestData()
             
             if questData then
-                ManageQuest(questData)
+                CheckAndGetQuest(questData)
                 CustomTween(questData.Area)
                 
                 for _, monster in pairs(Workspace.Enemies:GetChildren()) do
@@ -220,14 +215,15 @@ local function StartAutoFarm()
                         CurrentTarget = monster
                         
                         while AutoFarm and CurrentTarget and CurrentTarget.Parent and CurrentTarget.Humanoid.Health > 0 do
-                            task.wait()
+                            task.wait(0.03)
                             ExpandHitbox(CurrentTarget)
                             
-                            -- الطيران فوق الهدف بمسافة ثابته
-                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                            -- الاقتراب لارتفاع دقيق ليقبل السيرفر احتساب الضربات
+                            local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 3, 0)
                             LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
                             
                             EquipWeapon(SelectedWeapon)
+                            DirectAttack()
                         end
                         
                         repeat task.wait() until not CurrentTarget or not CurrentTarget.Parent
@@ -247,8 +243,6 @@ MainTab:CreateToggle({
       AutoFarm = Value
       if AutoFarm then
           StartAutoFarm()
-      else
-          StopCameraFollow()
       end
    end,
 })
