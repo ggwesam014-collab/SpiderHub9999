@@ -5,7 +5,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V5.1 | Blox Fruits",
+   Name = "Spider Hub V5.2 | Blox Fruits",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -265,7 +265,7 @@ end
 
 -- UI Controls
 MainTab:CreateToggle({
-   Name = "اوتو لفل | Auto Lvl",
+   Name = "تفعيل Auto Farm الشامل (1-2800)",
    CurrentValue = false,
    Flag = "AutoFarmToggle",
    Callback = function(Value)
@@ -277,7 +277,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateDropdown({
-   Name = "نوع السلاح | WeaponType",
+   Name = "نوع السلاح",
    Options = {"Melee", "Sword", "Blox Fruit"},
    CurrentOption = "Melee",
    Flag = "WeaponDropdown",
