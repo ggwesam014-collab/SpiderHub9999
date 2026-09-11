@@ -1,11 +1,11 @@
--- Target: Spider Hub V5.1 | Blox Fruits (Fixed Quest Teleport Loop & Fast Farm)
+-- Target: Spider Hub V5.2 | Blox Fruits (Smart Flight & Reset System)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V5.2 | Blox Fruits",
+   Name = "Spider Hub V5.2ALPHA | Blox Fruits",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -26,20 +26,26 @@ local LocalPlayer = Players.LocalPlayer
 local AutoFarm = false
 local SelectedWeapon = "Melee"
 local CurrentTarget = nil
-local GettingQuest = false -- مؤشر حماية لمنع التكرار والـ Teleport المستمر
+local GettingQuest = false
 
 ----------------------------------------------------------------
--- Disable Effects & Animations
+-- Control Animations (تعطيل/إعادة الأنميشن)
 ----------------------------------------------------------------
-local function CleanPlayerEffects()
+local function ManageAnimations(enable)
     pcall(function()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then
-            local animator = hum:FindFirstChildOfClass("Animator")
-            if animator then animator:Destroy() end
-            for _, track in pairs(hum:GetPlayingAnimationTracks()) do
-                track:Stop()
+            if not enable then
+                local animator = hum:FindFirstChildOfClass("Animator")
+                if animator then animator:Destroy() end
+                for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+                    track:Stop()
+                end
+            else
+                if not hum:FindFirstChildOfClass("Animator") then
+                    Instance.new("Animator", hum)
+                end
             end
         end
     end)
@@ -71,7 +77,7 @@ local function MakeBigHitbox(enemy)
     if enemy and enemy:FindFirstChild("HumanoidRootPart") then
         pcall(function()
             local hrp = enemy.HumanoidRootPart
-            hrp.Size = Vector3.new(70, 70, 70)
+            hrp.Size = Vector3.new(75, 75, 75)
             hrp.Transparency = 0.6
             hrp.Color = Color3.fromRGB(255, 0, 0)
             hrp.Material = Enum.Material.Neon
@@ -81,7 +87,7 @@ local function MakeBigHitbox(enemy)
 end
 
 ----------------------------------------------------------------
--- Fast Auto Hit System
+-- Fast Auto Hit System (الضرب التلقائي)
 ----------------------------------------------------------------
 local function StartAutoHit()
     task.spawn(function()
@@ -108,30 +114,42 @@ local function StartAutoHit()
 end
 
 ----------------------------------------------------------------
--- Fast Direct Tween
+-- Smart Flight Tween (ارتفاع 40m وتوقف 0.1 ثانية بالهواء)
 ----------------------------------------------------------------
-local function DirectTween(targetCFrame)
+local function FlyTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     
-    local speed = 300
-    local targetPos = targetCFrame.Position
+    local startPos = rootPart.Position
+    local endPos = targetCFrame.Position
+    local flyHeight = math.max(startPos.Y, endPos.Y) + 40
     
-    while AutoFarm and (rootPart.Position - targetPos).Magnitude > 8 do
+    local highTargetPos = Vector3.new(endPos.X, flyHeight, endPos.Z)
+    local speed = 300
+
+    -- الطيران إلى النقطة العالية فوق الهدف
+    while AutoFarm and (rootPart.Position - highTargetPos).Magnitude > 8 do
         local dt = RunService.Heartbeat:Wait()
         local currentPos = rootPart.Position
-        local direction = (targetPos - currentPos).Unit
-        local distance = (targetPos - currentPos).Magnitude
+        local direction = (highTargetPos - currentPos).Unit
+        local distance = (highTargetPos - currentPos).Magnitude
         
         local moveStep = math.min(distance, speed * dt)
-        local newPos = currentPos + (direction * moveStep)
-        
-        rootPart.CFrame = CFrame.new(newPos, targetPos)
+        rootPart.CFrame = CFrame.new(currentPos + (direction * moveStep), highTargetPos)
         rootPart.Velocity = Vector3.zero
     end
     
-    rootPart.CFrame = targetCFrame
-    rootPart.Velocity = Vector3.zero
+    -- التوقف بالهواء لمدة 0.1 ثانية لتفادي التعليق
+    if AutoFarm then
+        rootPart.Velocity = Vector3.zero
+        task.wait(0.1)
+    end
+    
+    -- النزول المباشر للهدف
+    if AutoFarm then
+        rootPart.CFrame = targetCFrame
+        rootPart.Velocity = Vector3.zero
+    end
 end
 
 ----------------------------------------------------------------
@@ -195,7 +213,7 @@ local function GetCurrentQuestData()
 end
 
 ----------------------------------------------------------------
--- Fixed Quest Checking & Safe Fetching
+-- Check Quest Status (فحص حالة المهمة الحالية)
 ----------------------------------------------------------------
 local function HasQuest()
     local mainGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
@@ -207,33 +225,35 @@ local function EnsureQuest(questData)
     if HasQuest() or GettingQuest then return end
     
     GettingQuest = true
-    DirectTween(questData.NPC)
+    FlyTween(questData.NPC)
     task.wait(0.2)
     
     pcall(function()
         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
     end)
     
-    task.wait(0.5) -- مهلة زمنية للتأكد من وصول أخذ المهمة من السيرفر
+    task.wait(0.4)
     GettingQuest = false
 end
 
 ----------------------------------------------------------------
--- Main Fast Auto Farm Loop
+-- Main Auto Farm Loop
 ----------------------------------------------------------------
 local function StartAutoFarm()
+    ManageAnimations(false)
     StartAutoHit()
     
     task.spawn(function()
         while AutoFarm do
             task.wait(0.02)
-            CleanPlayerEffects()
-            
             local questData = GetCurrentQuestData()
+            
             if questData then
-                EnsureQuest(questData)
-                
-                if HasQuest() then
+                -- إذا لم تكن هناك مهمة مأخوذة، يذهب فوراً لأخذها
+                if not HasQuest() then
+                    EnsureQuest(questData)
+                else
+                    -- إذا كانت المهمة مأخوذة، يبدأ بالقتال مباشرة
                     local foundEnemy = false
                     for _, monster in pairs(Workspace.Enemies:GetChildren()) do
                         if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
@@ -255,7 +275,7 @@ local function StartAutoFarm()
                     end
                     
                     if not foundEnemy then
-                        DirectTween(questData.Area)
+                        FlyTween(questData.Area)
                     end
                 end
             end
@@ -272,6 +292,14 @@ MainTab:CreateToggle({
       AutoFarm = Value
       if AutoFarm then
           StartAutoFarm()
+      else
+          -- عند الإطفاء: إرجاع كل شيء للحالة الطبيعية والأنميشن
+          CurrentTarget = nil
+          GettingQuest = false
+          ManageAnimations(true)
+          if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+              LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
+          end
       end
    end,
 })
