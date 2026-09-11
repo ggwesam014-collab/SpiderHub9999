@@ -1,11 +1,11 @@
--- Target: Spider Hub V5.2 | Blox Fruits (Smart Flight & Reset System)
+-- Target: Spider Hub V5.4 | Blox Fruits (Sea 1 Reworked Coords & Anti-Loop)
 -- Created by: SpiDev
 -- UI Library: Rayfield
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Spider Hub V5.2ALPHA | Blox Fruits",
+   Name = "Spider Hub V5.4 | Blox Fruits",
    LoadingTitle = "Spider Hub Loading...",
    LoadingSubtitle = "by SpiDev",
    ConfigurationSaving = { Enabled = false }
@@ -29,7 +29,7 @@ local CurrentTarget = nil
 local GettingQuest = false
 
 ----------------------------------------------------------------
--- Control Animations (تعطيل/إعادة الأنميشن)
+-- Control Animations (إدارة الأنميشن وإعادته عند الإيقاف)
 ----------------------------------------------------------------
 local function ManageAnimations(enable)
     pcall(function()
@@ -52,7 +52,7 @@ local function ManageAnimations(enable)
 end
 
 ----------------------------------------------------------------
--- Equip Weapon
+-- Auto Equip Weapon
 ----------------------------------------------------------------
 local function EquipWeapon(weaponType)
     local character = LocalPlayer.Character
@@ -77,7 +77,7 @@ local function MakeBigHitbox(enemy)
     if enemy and enemy:FindFirstChild("HumanoidRootPart") then
         pcall(function()
             local hrp = enemy.HumanoidRootPart
-            hrp.Size = Vector3.new(75, 75, 75)
+            hrp.Size = Vector3.new(70, 70, 70)
             hrp.Transparency = 0.6
             hrp.Color = Color3.fromRGB(255, 0, 0)
             hrp.Material = Enum.Material.Neon
@@ -87,7 +87,7 @@ local function MakeBigHitbox(enemy)
 end
 
 ----------------------------------------------------------------
--- Fast Auto Hit System (الضرب التلقائي)
+-- Fast Auto Hit System
 ----------------------------------------------------------------
 local function StartAutoHit()
     task.spawn(function()
@@ -114,7 +114,7 @@ local function StartAutoHit()
 end
 
 ----------------------------------------------------------------
--- Smart Flight Tween (ارتفاع 40m وتوقف 0.1 ثانية بالهواء)
+-- Smooth Fly Tween (طيران 40m + وقفة 0.1s)
 ----------------------------------------------------------------
 local function FlyTween(targetCFrame)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -125,10 +125,9 @@ local function FlyTween(targetCFrame)
     local flyHeight = math.max(startPos.Y, endPos.Y) + 40
     
     local highTargetPos = Vector3.new(endPos.X, flyHeight, endPos.Z)
-    local speed = 300
+    local speed = 320
 
-    -- الطيران إلى النقطة العالية فوق الهدف
-    while AutoFarm and (rootPart.Position - highTargetPos).Magnitude > 8 do
+    while AutoFarm and (rootPart.Position - highTargetPos).Magnitude > 10 do
         local dt = RunService.Heartbeat:Wait()
         local currentPos = rootPart.Position
         local direction = (highTargetPos - currentPos).Unit
@@ -139,13 +138,11 @@ local function FlyTween(targetCFrame)
         rootPart.Velocity = Vector3.zero
     end
     
-    -- التوقف بالهواء لمدة 0.1 ثانية لتفادي التعليق
     if AutoFarm then
         rootPart.Velocity = Vector3.zero
         task.wait(0.1)
     end
     
-    -- النزول المباشر للهدف
     if AutoFarm then
         rootPart.CFrame = targetCFrame
         rootPart.Velocity = Vector3.zero
@@ -153,24 +150,24 @@ local function FlyTween(targetCFrame)
 end
 
 ----------------------------------------------------------------
--- Databases (Sea 1, 2, 3 - Lvl 1 to 2800)
+-- Reworked Databases (Sea 1 Rework, Sea 2, Sea 3)
 ----------------------------------------------------------------
 local Sea1_Quests = {
-    {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059, 16, 1549), Area = CFrame.new(1145, 17, 1634)},
-    {MinLvl = 10, MaxLvl = 14, QuestName = "JungleQuest", Monster = "Monkey", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1610, 36, 142)},
-    {MinLvl = 15, MaxLvl = 29, QuestName = "JungleQuest", Monster = "Gorilla", NPC = CFrame.new(-1598, 36, 153), Area = CFrame.new(-1240, 6, -490)},
-    {MinLvl = 30, MaxLvl = 59, QuestName = "BuggyQuest1", Monster = "Pirate", NPC = CFrame.new(-1140, 4, 3828), Area = CFrame.new(-1215, 4, 3910)},
-    {MinLvl = 60, MaxLvl = 89, QuestName = "DesertQuest", Monster = "Desert Bandit", NPC = CFrame.new(894, 6, 4382), Area = CFrame.new(932, 6, 4484)},
-    {MinLvl = 90, MaxLvl = 119, QuestName = "SnowQuest", Monster = "Snow Bandit", NPC = CFrame.new(1386, 87, -1298), Area = CFrame.new(1287, 105, -1380)},
-    {MinLvl = 120, MaxLvl = 149, QuestName = "MarineQuest2", Monster = "Chief Petty Officer", NPC = CFrame.new(-5030, 20, 4320), Area = CFrame.new(-4850, 20, 4300)},
-    {MinLvl = 150, MaxLvl = 189, QuestName = "SkyQuest", Monster = "Sky Bandit", NPC = CFrame.new(-4840, 718, -2620), Area = CFrame.new(-4970, 720, -2890)},
-    {MinLvl = 190, MaxLvl = 224, QuestName = "PrisonerQuest", Monster = "Prisoner", NPC = CFrame.new(530, 1, 4740), Area = CFrame.new(530, 1, 4740)},
-    {MinLvl = 225, MaxLvl = 299, QuestName = "ColosseumQuest", Monster = "Toga Warrior", NPC = CFrame.new(-1580, 7, -2980), Area = CFrame.new(-1800, 7, -2980)},
-    {MinLvl = 300, MaxLvl = 374, QuestName = "MagmaQuest", Monster = "Military Soldier", NPC = CFrame.new(-5310, 12, 8515), Area = CFrame.new(-5400, 12, 8500)},
-    {MinLvl = 375, MaxLvl = 449, QuestName = "FishmanQuest", Monster = "Fishman Warrior", NPC = CFrame.new(61120, 18, 1560), Area = CFrame.new(61000, 18, 1500)},
-    {MinLvl = 450, MaxLvl = 524, QuestName = "SkyExp1Quest", Monster = "God's Guard", NPC = CFrame.new(-4720, 845, -1950), Area = CFrame.new(-4700, 845, -1900)},
-    {MinLvl = 525, MaxLvl = 624, QuestName = "SkyExp2Quest", Monster = "Shandia", NPC = CFrame.new(-7900, 5600, -1270), Area = CFrame.new(-7700, 5600, -1100)},
-    {MinLvl = 625, MaxLvl = 699, QuestName = "FountainQuest", Monster = "Galley Pirate", NPC = CFrame.new(5250, 38, 4050), Area = CFrame.new(5500, 38, 3900)},
+    {MinLvl = 1, MaxLvl = 9, QuestName = "BanditQuest1", Monster = "Bandit", NPC = CFrame.new(1059.37, 15.45, 1550.42), Area = CFrame.new(1190.50, 16.20, 1610.30)},
+    {MinLvl = 10, MaxLvl = 14, QuestName = "JungleQuest", Monster = "Monkey", NPC = CFrame.new(-1598.08, 36.85, 153.38), Area = CFrame.new(-1448.20, 50.30, 63.80)},
+    {MinLvl = 15, MaxLvl = 29, QuestName = "JungleQuest", Monster = "Gorilla", NPC = CFrame.new(-1598.08, 36.85, 153.38), Area = CFrame.new(-1237.50, 6.20, -486.20)},
+    {MinLvl = 30, MaxLvl = 59, QuestName = "BuggyQuest1", Monster = "Pirate", NPC = CFrame.new(-1141.07, 4.10, 3856.07), Area = CFrame.new(-1218.40, 4.70, 3920.10)},
+    {MinLvl = 60, MaxLvl = 89, QuestName = "DesertQuest", Monster = "Desert Bandit", NPC = CFrame.new(894.20, 6.40, 4388.50), Area = CFrame.new(932.10, 6.40, 4484.20)},
+    {MinLvl = 90, MaxLvl = 119, QuestName = "SnowQuest", Monster = "Snow Bandit", NPC = CFrame.new(1385.60, 87.20, -1298.30), Area = CFrame.new(1287.10, 105.50, -1380.40)},
+    {MinLvl = 120, MaxLvl = 149, QuestName = "MarineQuest2", Monster = "Chief Petty Officer", NPC = CFrame.new(-5030.50, 28.60, 4324.70), Area = CFrame.new(-4850.20, 22.10, 4300.80)},
+    {MinLvl = 150, MaxLvl = 189, QuestName = "SkyQuest", Monster = "Sky Bandit", NPC = CFrame.new(-4839.80, 717.50, -2619.40), Area = CFrame.new(-4970.10, 720.80, -2890.30)},
+    {MinLvl = 190, MaxLvl = 224, QuestName = "PrisonerQuest", Monster = "Prisoner", NPC = CFrame.new(530.80, 1.60, 4740.20), Area = CFrame.new(530.80, 1.60, 4740.20)},
+    {MinLvl = 225, MaxLvl = 299, QuestName = "ColosseumQuest", Monster = "Toga Warrior", NPC = CFrame.new(-1580.30, 7.20, -2986.40), Area = CFrame.new(-1800.50, 7.20, -2980.10)},
+    {MinLvl = 300, MaxLvl = 374, QuestName = "MagmaQuest", Monster = "Military Soldier", NPC = CFrame.new(-5313.40, 12.20, 8516.80), Area = CFrame.new(-5400.10, 12.20, 8500.40)},
+    {MinLvl = 375, MaxLvl = 449, QuestName = "FishmanQuest", Monster = "Fishman Warrior", NPC = CFrame.new(61122.60, 18.50, 1567.90), Area = CFrame.new(61000.20, 18.50, 1500.80)},
+    {MinLvl = 450, MaxLvl = 524, QuestName = "SkyExp1Quest", Monster = "God's Guard", NPC = CFrame.new(-4721.80, 845.20, -1953.60), Area = CFrame.new(-4700.40, 845.20, -1900.20)},
+    {MinLvl = 525, MaxLvl = 624, QuestName = "SkyExp2Quest", Monster = "Shandia", NPC = CFrame.new(-7901.20, 5600.80, -1270.40), Area = CFrame.new(-7700.10, 5600.80, -1100.50)},
+    {MinLvl = 625, MaxLvl = 699, QuestName = "FountainQuest", Monster = "Galley Pirate", NPC = CFrame.new(5258.80, 38.50, 4050.20), Area = CFrame.new(5500.10, 38.50, 3900.40)},
 }
 
 local Sea2_Quests = {
@@ -213,12 +210,18 @@ local function GetCurrentQuestData()
 end
 
 ----------------------------------------------------------------
--- Check Quest Status (فحص حالة المهمة الحالية)
+-- Check Quest Status
 ----------------------------------------------------------------
 local function HasQuest()
     local mainGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
-    local questUI = mainGui and mainGui:FindFirstChild("Quest")
-    return questUI and questUI.Visible and questUI.Container.QuestTitle.Title.Text ~= ""
+    if mainGui and mainGui:FindFirstChild("Quest") then
+        local questFrame = mainGui.Quest
+        if questFrame.Visible then
+            local titleText = questFrame.Container.QuestTitle.Title.Text
+            return titleText ~= nil and titleText ~= ""
+        end
+    end
+    return false
 end
 
 local function EnsureQuest(questData)
@@ -226,13 +229,15 @@ local function EnsureQuest(questData)
     
     GettingQuest = true
     FlyTween(questData.NPC)
-    task.wait(0.2)
+    task.wait(0.3)
     
-    pcall(function()
-        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
-    end)
+    if not HasQuest() then
+        pcall(function()
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, 1)
+        end)
+    end
     
-    task.wait(0.4)
+    task.wait(0.5)
     GettingQuest = false
 end
 
@@ -249,11 +254,9 @@ local function StartAutoFarm()
             local questData = GetCurrentQuestData()
             
             if questData then
-                -- إذا لم تكن هناك مهمة مأخوذة، يذهب فوراً لأخذها
                 if not HasQuest() then
                     EnsureQuest(questData)
                 else
-                    -- إذا كانت المهمة مأخوذة، يبدأ بالقتال مباشرة
                     local foundEnemy = false
                     for _, monster in pairs(Workspace.Enemies:GetChildren()) do
                         if monster.Name == questData.Monster and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
@@ -264,7 +267,7 @@ local function StartAutoFarm()
                                 task.wait(0.01)
                                 MakeBigHitbox(CurrentTarget)
                                 
-                                local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
+                                local targetCFrame = CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, 7, 0)
                                 LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame
                                 LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
                             end
@@ -274,7 +277,7 @@ local function StartAutoFarm()
                         end
                     end
                     
-                    if not foundEnemy then
+                    if not foundEnemy and HasQuest() then
                         FlyTween(questData.Area)
                     end
                 end
@@ -293,7 +296,6 @@ MainTab:CreateToggle({
       if AutoFarm then
           StartAutoFarm()
       else
-          -- عند الإطفاء: إرجاع كل شيء للحالة الطبيعية والأنميشن
           CurrentTarget = nil
           GettingQuest = false
           ManageAnimations(true)
